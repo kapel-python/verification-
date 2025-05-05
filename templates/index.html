@@ -1,1 +1,166 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-center">Проверка Email</h3>
+            </div>
+            <div class="card-body">
+                <form id="emailForm" method="POST" action="{{ url_for('index') }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.email.id }}" class="form-label">{{ form.email.label }}</label>
+                        {{ form.email(class="form-control", placeholder="Введите ваш email адрес") }}
+                        <div class="invalid-feedback" id="emailFeedback"></div>
+                        {% if form.email.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.email.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Results section, initially hidden -->
+        <div id="resultContainer" class="mt-4 d-none">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Статус</h5>
+                </div>
+                <div class="card-body">
+                    <div id="resultMessage"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Получаем элементы формы
+    const emailForm = document.getElementById('emailForm');
+    const resultContainer = document.getElementById('resultContainer');
+    const resultMessage = document.getElementById('resultMessage');
+    const emailInput = document.getElementById('{{ form.email.id }}');
+    const emailFeedback = document.getElementById('emailFeedback');
+    const submitBtn = document.querySelector('input[type="submit"]');
+    
+    // Обработчик отправки формы
+    if (emailForm) {
+        emailForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Базовая валидация email
+            if (emailInput && emailFeedback) {
+                const email = emailInput.value.trim();
+                if (!email) {
+                    emailInput.classList.add('is-invalid');
+                    emailFeedback.textContent = 'Требуется указать email';
+                    return;
+                }
+                
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    emailInput.classList.add('is-invalid');
+                    emailFeedback.textContent = 'Пожалуйста, введите корректный email адрес';
+                    return;
+                }
+                
+                emailInput.classList.remove('is-invalid');
+            }
+            
+            // Показываем состояние загрузки
+            let originalValue = 'Отправить код';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                originalValue = submitBtn.value || 'Отправить код';
+                submitBtn.value = 'Отправка...';
+            }
+            
+            // Отправляем данные формы через AJAX
+            fetch('{{ url_for("index") }}', {
+                method: 'POST',
+                body: new FormData(emailForm),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                // Возвращаем кнопке исходное состояние
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.value = originalValue;
+                }
+                
+                // Показываем результат
+                if (resultContainer) {
+                    resultContainer.classList.remove('d-none');
+                }
+                
+                // Отображаем сообщение
+                if (resultMessage) {
+                    if (data.status === 'success') {
+                        resultMessage.innerHTML = '<div class="alert alert-success mb-0">' +
+                            '<i class="fas fa-check-circle me-2"></i> ' + data.message +
+                            '<p class="mt-2 mb-0">Пожалуйста, проверьте ваш email для получения проверочного кода.</p>' +
+                            '</div>';
+                    } else {
+                        resultMessage.innerHTML = '<div class="alert alert-danger mb-0">' +
+                            '<i class="fas fa-exclamation-circle me-2"></i> ' + data.message +
+                            '<p class="mt-2 mb-0">Пожалуйста, попробуйте еще раз или свяжитесь с поддержкой.</p>' +
+                            '</div>';
+                    }
+                }
+            })
+            .catch(function(error) {
+                // Возвращаем кнопке исходное состояние
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.value = originalValue;
+                }
+                
+                // Показываем ошибку
+                if (resultContainer) {
+                    resultContainer.classList.remove('d-none');
+                }
+                
+                if (resultMessage) {
+                    resultMessage.innerHTML = '<div class="alert alert-danger mb-0">' +
+                        '<i class="fas fa-exclamation-circle me-2"></i> Произошла непредвиденная ошибка.' +
+                        '<p class="mt-2 mb-0">Пожалуйста, попробуйте позже.</p>' +
+                        '</div>';
+                }
+                
+                console.error('Ошибка:', error);
+            });
+        });
+        
+        // Очищаем валидацию при вводе текста
+        if (emailInput && emailFeedback) {
+            emailInput.addEventListener('input', function() {
+                if (emailInput.classList.contains('is-invalid')) {
+                    emailInput.classList.remove('is-invalid');
+                    emailFeedback.textContent = '';
+                }
+            });
+        }
+    }
+});
+</script>
+{% endblock %}
 
